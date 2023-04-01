@@ -3,7 +3,37 @@
 #include <winsock2.h>
 #include <windows.h>
 
-void server()
+DWORD WINAPI listen_for_messages(void* sock)
+{
+	char buf[256];
+	while(1)
+	{
+		if(recv((int)sock, buf, sizeof(buf), 0) == SOCKET_ERROR)
+		{
+			printf("listen error code: %d\n", WSAGetLastError());
+			break;
+		}
+		printf("them: %s\n", buf);
+	}
+	return 0;
+}
+
+DWORD WINAPI send_messages(void* sock)
+{
+	char buf[256];
+	while(1)
+	{
+		gets(buf);
+		if(send((int)sock, buf, sizeof(buf), 0) == SOCKET_ERROR)
+		{
+			printf("send error code: %d\n", WSAGetLastError());
+			break;
+		}
+	}
+	return 0;
+}
+
+void server(u_short port)
 {
 	int sock;
 	if((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
@@ -15,21 +45,39 @@ void server()
 	int addr_len = sizeof(addr);
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(8080);
+	addr.sin_port = htons(port);
 	if(bind(sock, (sockaddr *) &addr, sizeof(addr)) == SOCKET_ERROR)
 	{
 		printf("error code: %d\n", WSAGetLastError());
+		return;
 	}
 
 	if(listen(sock, 1) == SOCKET_ERROR)
 	{
 		printf("error code: %d\n", WSAGetLastError());
+		return;
 	}
-	int conn_socket;
-	if((conn_socket = accept(sock, (sockaddr *) &addr, &addr_len)) == INVALID_SOCKET)
+	printf("server is now listening on port %d\n", port);
+	int conn_sock;
+	if((conn_sock = accept(sock, (sockaddr *) &addr, &addr_len)) == INVALID_SOCKET)
 	{
 		printf("error code: %d\n", WSAGetLastError());
+		return;
 	}
+
+	printf("connected to %lu\n", ntohl(addr.sin_addr.s_addr));
+	HANDLE listen_thread, talk_thread;	
+	if((listen_thread = CreateThread(NULL, 0, listen_for_messages, (void*)conn_sock, 0, NULL)) == NULL)
+	{
+		printf("error code: %d\n", GetLastError());
+		return;
+	}
+	/*if((talk_thread = CreateThread(NULL, 0, send_messages, (void*)sock, 0, NULL)) == NULL)
+	{
+		printf("error code: %d\n", GetLastError());
+		return;
+	}*/
+	send_messages((void*)conn_sock);
 }
 
 void client(u_long ip, u_short port)
@@ -44,17 +92,32 @@ void client(u_long ip, u_short port)
 	addr.sin_addr.s_addr = htonl(ip);
 	addr.sin_port = htons(port);
 	int addr_size = sizeof(addr);
-	if(connect(sock, (sockaddr *) &addr, sizeof(addr)) == SOCKET_ERROR)
+	int conn_sock;
+	if((conn_sock = connect(sock, (sockaddr *) &addr, sizeof(addr))) == SOCKET_ERROR)
 	{
 		printf("error code: %d\n", WSAGetLastError());
+		return;
 	}
+	printf("connection successful\n");
+	HANDLE listen_thread, talk_thread;	
+	if((listen_thread = CreateThread(NULL, 0, listen_for_messages, (void*)sock, 0, NULL)) == NULL)
+	{
+		printf("error code: %d\n", GetLastError());
+		return;
+	}
+	/*if((talk_thread = CreateThread(NULL, 0, send_messages, (void*)sock, 0, NULL)) == NULL)
+	{
+		printf("error code: %d\n", GetLastError());
+		return;
+	}*/
+	send_messages((void*)sock);
 }
 
 int main(int argc, char *argv[])
 {
 	WSADATA wsaDATA;
 	WSAStartup(MAKEWORD(2, 2), &wsaDATA);
-	if(argc > 1)
+	if(argc > 2)
 	{
 		char ip_string[strlen(argv[1])];
 		strcpy(ip_string, argv[1]);
@@ -116,7 +179,15 @@ int main(int argc, char *argv[])
 		client(ip, port);
 	}
 	else
-		server();
+	{
+		u_short port = atoi(argv[1]);
+		if(argc == 1 || port == 0)
+		{
+			printf("invalid port\n");
+			return 1;
+		}
+		server(port);
+	}
 	
 	return 0;
 }
