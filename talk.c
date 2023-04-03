@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <winsock2.h>
 #include <windows.h>
+#include <time.h>
 
 DWORD WINAPI listen_for_messages(void* sock)
 {
@@ -35,12 +36,12 @@ DWORD WINAPI send_messages(void* sock)
 
 void server(u_short port)
 {
+	int public_key = rand();
 	int sock;
 	if((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
 	{
 		printf("error code: %d\n", WSAGetLastError());
 	}
-
 	struct sockaddr_in addr;
 	int addr_len = sizeof(addr);
 	addr.sin_family = AF_INET;
@@ -57,7 +58,11 @@ void server(u_short port)
 		printf("error code: %d\n", WSAGetLastError());
 		return;
 	}
-	printf("server is now listening on port %d\n", port);
+
+	char host[256];
+	gethostname(host, sizeof(host));
+	struct hostent* host_info = gethostbyname(host);	
+	printf("server with ip %s is now listening on port %d\n", inet_ntoa(*((struct in_addr *)host_info->h_addr_list[0])), port);
 	int conn_sock;
 	if((conn_sock = accept(sock, (sockaddr *) &addr, &addr_len)) == INVALID_SOCKET)
 	{
@@ -65,18 +70,22 @@ void server(u_short port)
 		return;
 	}
 
-	printf("connected to %lu\n", ntohl(addr.sin_addr.s_addr));
+	printf("connected to %s\n", inet_ntoa(addr.sin_addr));
+	char num_buf[sizeof(int)];
+	memcpy(num_buf, &public_key, sizeof(int));
+	if(send((int)conn_sock, num_buf, sizeof(num_buf), 0) == SOCKET_ERROR)
+	{
+		printf("send error code: %d\n", WSAGetLastError());
+		return;
+	}
+	printf("public key %d sent\n", public_key);
+
 	HANDLE listen_thread, talk_thread;	
 	if((listen_thread = CreateThread(NULL, 0, listen_for_messages, (void*)conn_sock, 0, NULL)) == NULL)
 	{
 		printf("error code: %d\n", GetLastError());
 		return;
 	}
-	/*if((talk_thread = CreateThread(NULL, 0, send_messages, (void*)sock, 0, NULL)) == NULL)
-	{
-		printf("error code: %d\n", GetLastError());
-		return;
-	}*/
 	send_messages((void*)conn_sock);
 }
 
@@ -99,22 +108,27 @@ void client(u_long ip, u_short port)
 		return;
 	}
 	printf("connection successful\n");
+	char num_buf[sizeof(int)];
+	if(recv((int)sock, num_buf, sizeof(num_buf), 0) == SOCKET_ERROR)
+	{
+		printf("listen error code: %d\n", WSAGetLastError());
+		return;
+	}
+	int public_key;
+	memcpy(&public_key, num_buf, sizeof(num_buf));
+	printf("public key %d recived\n", public_key);
 	HANDLE listen_thread, talk_thread;	
 	if((listen_thread = CreateThread(NULL, 0, listen_for_messages, (void*)sock, 0, NULL)) == NULL)
 	{
 		printf("error code: %d\n", GetLastError());
 		return;
 	}
-	/*if((talk_thread = CreateThread(NULL, 0, send_messages, (void*)sock, 0, NULL)) == NULL)
-	{
-		printf("error code: %d\n", GetLastError());
-		return;
-	}*/
 	send_messages((void*)sock);
 }
 
 int main(int argc, char *argv[])
 {
+	srand(time(NULL));
 	WSADATA wsaDATA;
 	WSAStartup(MAKEWORD(2, 2), &wsaDATA);
 	if(argc > 2)
