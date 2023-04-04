@@ -13,7 +13,7 @@ run the executable from the command line with an ip address followed by a port n
 talk.exe 127.0.0.1 800
 ```
 
-anyone can type
+once connected anyone can type
 ```
 exit
 ```
