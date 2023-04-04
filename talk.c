@@ -45,6 +45,7 @@ DWORD WINAPI send_messages(void* sock)
 	char buf[256];
 	while(running == 1)
 	{
+		// TODO: change gets() to a SAFE function.
 		gets(buf);
 		if(send((int)sock, buf, sizeof(buf), 0) == SOCKET_ERROR)
 		{
@@ -207,7 +208,7 @@ int main(int argc, char *argv[])
 	// providing an ip adrress and port will start a CLIENT trying to connect to the SERVER at the given ip adress.
 	if(argc > 2)
 	{
-		// TODO: SIMPLY THE READING OF IP ADDRESSES
+		// TODO: SIMPLFIY THE READING OF IP ADDRESSES
 		// there is a built in function for this
 
 		char ip_string[strlen(argv[1])];
