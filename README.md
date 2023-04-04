@@ -6,11 +6,11 @@ A chat app showing of what I learned in BWSI's Cyber Ops Selection Course.
 
 run the executable from the command line with an integer specifying port number to start a server.
 ```
-./talk.exe 800
+talk.exe 800
 ```
 run the executable from the command line with an ip address followed by a port number to connect to a server as a client.
 ```
-./talk.exe 127.0.0.1 800
+talk.exe 127.0.0.1 800
 ```
 
 anyone can type
