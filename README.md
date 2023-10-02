@@ -18,3 +18,8 @@ once connected anyone can type
 exit
 ```
 to end the conversation and close the program.
+
+## Structure
+
+*Listener Mode:* Listen for any incoming connections
+*Speaker Mode:* Connect to a listener and await begin messaging
